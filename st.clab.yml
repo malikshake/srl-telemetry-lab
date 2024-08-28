@@ -86,56 +86,22 @@ topology:
       cmd: --config /gnmic-config.yml --log subscribe
       group: "10" # group 10 is assigned to the nodes of a telemetry stack
 
-    prometheus:
+    pktvisor:
       kind: linux
       mgmt-ipv4: 172.80.80.42
-      image: quay.io/prometheus/prometheus:v2.47.2
-      binds:
-        - configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      cmd: --config.file=/etc/prometheus/prometheus.yml
-      ports:
-        - 9090:9090
+      image: orbcommunity/pktvisor:latest
+      network-mode: host
+      command: pktvisord eth0
       group: "10"
 
-    grafana:
+    alloy:
       kind: linux
       mgmt-ipv4: 172.80.80.43
-      image: grafana/grafana:10.2.1
+      image: grafana/alloy:latest
       binds:
-        - configs/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
-        - configs/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
-        - configs/grafana/dashboards:/var/lib/grafana/dashboards
-      ports:
-        - 3000:3000
-      env:
-        GF_INSTALL_PLUGINS: https://algenty.github.io/flowcharting-repository/archives/agenty-flowcharting-panel-1.0.0d.220606199-SNAPSHOT.zip;agenty-flowcharting-panel
-        # env vars to enable anonymous access
-        GF_ORG_ROLE: "Admin"
-        GF_ORG_NAME: "Main Org"
-        GF_AUTH_ANONYMOUS_ENABLED: "true"
-        GF_AUTH_ANONYMOUS: "true"
+        - configs/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      cmd: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
       group: "10"
-
-    ### LOGGING STACK ###
-    promtail:
-      kind: linux
-      mgmt-ipv4: 172.80.80.45
-      image: grafana/promtail:2.9.2
-      binds:
-        - configs/promtail:/etc/promtail
-      cmd: --config.file=/etc/promtail/promtail-config.yml
-      ports:
-        - 9080:9080
-
-    loki:
-      kind: linux
-      mgmt-ipv4: 172.80.80.46
-      image: grafana/loki:2.9.2
-      binds:
-        - configs/loki:/etc/loki
-      cmd: --config.file=/etc/loki/loki-config.yml
-      ports:
-        - 3100:3100
 
   links:
     - endpoints: ["spine1:e1-1", "leaf1:e1-49"]
