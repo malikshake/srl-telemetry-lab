@@ -91,7 +91,7 @@ topology:
       mgmt-ipv4: 172.80.80.42
       image: orbcommunity/pktvisor:latest
       network-mode: host
-      command: pktvisord eth0
+      cmd: pktvisord eth0 -l 0.0.0.0
       group: "10"
 
     alloy:
@@ -100,8 +100,27 @@ topology:
       image: grafana/alloy:latest
       binds:
         - configs/alloy/config.alloy:/etc/alloy/config.alloy:ro
-      cmd: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+      cmd: run --stability.level=experimental --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+      network-mode: host
+      env:
+        GC_SECRET_PROM: ${GC_SECRET_PROM} 
+        GC_SECRET_LOKI: ${GC_SECRET_LOKI} 
       group: "10"
+
+    syslog-ng:
+      kind: linux
+      mgmt-ipv4: 172.80.80.44
+      image: balabit/syslog-ng
+      binds:
+        - configs/syslog-ng/syslog-ng.conf:/config/syslog-ng.conf
+        - configs/syslog-ng/log:/var/log
+      ports:
+        - 514:5514/udp
+        - 601:6601/tcp
+        - 6514:6514/tcp
+      env:
+        PUID: 1000
+        PGID: 1000
 
   links:
     - endpoints: ["spine1:e1-1", "leaf1:e1-49"]

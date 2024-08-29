@@ -3,8 +3,12 @@ logging {
 	format = "logfmt"
 }
 
+livedebugging {
+  enabled = true
+}
+
 prometheus.scrape "pktvisor" {
-  targets = [{"__address__" = "172.80.80.42:10853"}]
+  targets = [{"__address__" = "0.0.0.0:10853"}]
   forward_to = [prometheus.remote_write.grafanacloud.receiver]
   scrape_interval = "10s"
 }
@@ -12,7 +16,7 @@ prometheus.scrape "pktvisor" {
 prometheus.scrape "gnmic" {
   targets = [{"__address__" = "gnmic:9273"}]
   forward_to = [prometheus.remote_write.grafanacloud.receiver]
-  scrape_interval = "5s"
+  scrape_interval = "10s"
 }
 
 prometheus.remote_write "grafanacloud" {
@@ -20,7 +24,62 @@ prometheus.remote_write "grafanacloud" {
     url = "https://prometheus-us-central1.grafana.net/api/prom/push"
     basic_auth {
       username = "894599"
-      password = env("GC_SECRET")
+      password = env("GC_SECRET_PROM")
+    }
+  }
+}
+
+discovery.relabel "syslog" {
+	targets = []
+
+	rule {
+		source_labels = ["__syslog_message_hostname"]
+		target_label  = "source"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_severity"]
+		target_label  = "level"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_app_name"]
+		target_label  = "application"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_facility"]
+		target_label  = "facility"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_proc_id"]
+		target_label  = "procid"
+	}
+}
+
+loki.source.syslog "syslog" {
+	listener {
+		address  = "0.0.0.0:51893"
+		labels   = { component = "loki.source.syslog", protocol = "tcp" }
+	}
+
+	listener {
+		address  = "0.0.0.0:1514"
+		protocol = "udp"
+		labels   = { component = "loki.source.syslog", protocol = "udp"}
+	}
+	forward_to    = [loki.write.grafanacloud.receiver]
+	relabel_rules = discovery.relabel.syslog.rules
+}
+
+loki.write "grafanacloud" {
+  endpoint {
+    url = "https://logs-prod-017.grafana.net/loki/api/v1/push"
+
+    basic_auth {
+      username = "446268"
+      password = env("GC_SECRET_LOKI")
     }
   }
 }
