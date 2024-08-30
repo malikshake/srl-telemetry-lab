@@ -41,7 +41,7 @@ topology:
     leaf2:
       startup-config: configs/fabric/leaf2.cfg
       mgmt-ipv4: 172.80.80.12
-      group: leaf
+      group: leaf     
     leaf3:
       startup-config: configs/fabric/leaf3.cfg
       mgmt-ipv4: 172.80.80.13
@@ -90,37 +90,26 @@ topology:
       kind: linux
       mgmt-ipv4: 172.80.80.42
       image: orbcommunity/pktvisor:latest
-      network-mode: host
-      cmd: pktvisord eth0 -l 0.0.0.0
+      cmd: pktvisord lo -l 0.0.0.0
       group: "10"
+      ports:
+        - "10853:10853"
 
     alloy:
       kind: linux
-      mgmt-ipv4: 172.80.80.43
+      mgmt-ipv4: 172.80.80.45
       image: grafana/alloy:latest
       binds:
         - configs/alloy/config.alloy:/etc/alloy/config.alloy:ro
+        - configs/alloy/secret.txt:/etc/alloy/secret.txt:ro
+        - configs/alloy/snmp.yaml:/etc/alloy/snmp.yaml:ro
       cmd: run --stability.level=experimental --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
-      network-mode: host
+      ports:
+        - "12345:12345"
       env:
         GC_SECRET_PROM: ${GC_SECRET_PROM} 
         GC_SECRET_LOKI: ${GC_SECRET_LOKI} 
       group: "10"
-
-    syslog-ng:
-      kind: linux
-      mgmt-ipv4: 172.80.80.44
-      image: balabit/syslog-ng
-      binds:
-        - configs/syslog-ng/syslog-ng.conf:/config/syslog-ng.conf
-        - configs/syslog-ng/log:/var/log
-      ports:
-        - 514:5514/udp
-        - 601:6601/tcp
-        - 6514:6514/tcp
-      env:
-        PUID: 1000
-        PGID: 1000
 
   links:
     - endpoints: ["spine1:e1-1", "leaf1:e1-49"]
