@@ -91,14 +91,18 @@ topology:
       kind: linux
       network-mode: host
       image: orbcommunity/pktvisor:latest
-      cmd: pktvisord mybridge -l 0.0.0.0 -p 10853 --prom-instance containerlab
+      binds:
+        - configs/pktvisor/:/geo/:ro
+      cmd: pktvisord mybridge -l 0.0.0.0 -p 10853 --prom-instance containerlab --geo-asn /geo/GeoLite2-ASN.mmdb --geo-city /geo/GeoLite2-City.mmdb
       group: "10"
 
     pktvisor_host:
       kind: linux
       network-mode: host
       image: orbcommunity/pktvisor:latest
-      cmd: pktvisord eth0 -l 0.0.0.0 -p 10854 --prom-instance containerlab_host
+      binds:
+        - configs/pktvisor/:/geo/:ro
+      cmd: pktvisord eth0 -l 0.0.0.0 -p 10854 --prom-instance containerlab_host --geo-asn /geo/GeoLite2-ASN.mmdb --geo-city /geo/GeoLite2-City.mmdb
       group: "10"
 
     alloy:
@@ -115,6 +119,8 @@ topology:
       ports:
         - "12345:12345"
       group: "10"
+      env: 
+        HOST_IP: ${HOST_IP}
 
   links:
     - endpoints: ["spine1:e1-1", "leaf1:e1-49"]

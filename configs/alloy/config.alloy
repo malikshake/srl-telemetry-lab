@@ -13,12 +13,11 @@ local.file "secret" {
 }
 
 prometheus.scrape "pktvisor" {
-  targets = [{"__address__" = "10.0.1.16:10853"},
-             {"__address__" = "10.0.1.16:10854"}]
+  targets = [{"__address__" = join([env("HOST_IP"),"10853"],":")},
+             {"__address__" = join([env("HOST_IP"),"10854"],":")}]
   forward_to = [prometheus.remote_write.grafanacloud.receiver]
   scrape_interval = "10s"
 }
-
 
 prometheus.scrape "gnmic" {
   targets = [{"__address__" = "gnmic:9273"}]
