@@ -8,6 +8,7 @@ prefix: ""
 mgmt:
   network: st
   ipv4-subnet: 172.80.80.0/24
+  bridge: mybridge
 
 topology:
   defaults:
@@ -86,11 +87,18 @@ topology:
       cmd: --config /gnmic-config.yml --log subscribe
       group: "10" # group 10 is assigned to the nodes of a telemetry stack
 
-    pktvisor:
+    pktvisor_containerlab:
       kind: linux
       network-mode: host
       image: orbcommunity/pktvisor:latest
-      cmd: pktvisord br-ac7c4bb50f2e -l 0.0.0.0 --prom-instance containerlab
+      cmd: pktvisord mybridge -l 0.0.0.0 -p 10853 --prom-instance containerlab
+      group: "10"
+
+    pktvisor_host:
+      kind: linux
+      network-mode: host
+      image: orbcommunity/pktvisor:latest
+      cmd: pktvisord eth0 -l 0.0.0.0 -p 10854 --prom-instance containerlab_host
       group: "10"
 
     alloy:
@@ -102,7 +110,7 @@ topology:
         - configs/alloy/secret.txt:/etc/alloy/secret.txt:ro
         - configs/alloy/snmp.yaml:/etc/alloy/snmp.yaml:ro
       exec:
-        - ip address add 10.0.0.111/24 dev eth1
+        - ip address add 10.0.0.111/31 dev eth1
       cmd: run --stability.level=experimental --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
       ports:
         - "12345:12345"
