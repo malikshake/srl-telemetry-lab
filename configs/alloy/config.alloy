@@ -13,10 +13,11 @@ local.file "secret" {
 }
 
 prometheus.scrape "pktvisor" {
-  targets = [{"__address__" = "pktvisor:10853"}]
+  targets = [{"__address__" = "10.0.2.158:10853"}]
   forward_to = [prometheus.remote_write.grafanacloud.receiver]
   scrape_interval = "10s"
 }
+
 
 prometheus.scrape "gnmic" {
   targets = [{"__address__" = "gnmic:9273"}]
@@ -73,11 +74,23 @@ discovery.relabel "integrations_snmp" {
         target_label  = "snmp_target"
         replacement   = "$2"
     }
+
 }
 prometheus.scrape "integrations_snmp" {
     targets    = discovery.relabel.integrations_snmp.output
-    forward_to = [prometheus.remote_write.grafanacloud.receiver]
+    forward_to = [prometheus.relabel.regex_replace.receiver]
     job_name   = "integrations/snmp"
+}
+
+prometheus.relabel "regex_replace" {
+    forward_to = [prometheus.remote_write.grafanacloud.receiver]
+      rule {
+        source_labels = ["ifDescr"]
+        regex         = "^([^,]+).*"
+        action        = "replace"
+        target_label  = "ifDescr"
+        replacement   = "$1"
+    }
 }
 
 prometheus.remote_write "grafanacloud" {

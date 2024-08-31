@@ -88,12 +88,10 @@ topology:
 
     pktvisor:
       kind: linux
-      mgmt-ipv4: 172.80.80.42
+      network-mode: host
       image: orbcommunity/pktvisor:latest
-      cmd: pktvisord lo -l 0.0.0.0
+      cmd: pktvisord br-ac7c4bb50f2e -l 0.0.0.0 --prom-instance containerlab
       group: "10"
-      ports:
-        - "10853:10853"
 
     alloy:
       kind: linux
@@ -103,12 +101,11 @@ topology:
         - configs/alloy/config.alloy:/etc/alloy/config.alloy:ro
         - configs/alloy/secret.txt:/etc/alloy/secret.txt:ro
         - configs/alloy/snmp.yaml:/etc/alloy/snmp.yaml:ro
+      exec:
+        - ip address add 10.0.0.111/24 dev eth1
       cmd: run --stability.level=experimental --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
       ports:
         - "12345:12345"
-      env:
-        GC_SECRET_PROM: ${GC_SECRET_PROM} 
-        GC_SECRET_LOKI: ${GC_SECRET_LOKI} 
       group: "10"
 
   links:
@@ -121,3 +118,4 @@ topology:
     - endpoints: ["leaf1:e1-1", "client1:eth1"]
     - endpoints: ["leaf2:e1-1", "client2:eth1"]
     - endpoints: ["leaf3:e1-1", "client3:eth1"]
+    - endpoints: ["alloy:eth1", "macvlan:eth0"]
