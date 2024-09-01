@@ -113,8 +113,6 @@ topology:
         - configs/alloy/config.alloy:/etc/alloy/config.alloy:ro
         - configs/alloy/secret.txt:/etc/alloy/secret.txt:ro
         - configs/alloy/snmp.yaml:/etc/alloy/snmp.yaml:ro
-      exec:
-        - ip address add 10.0.0.111/24 dev eth1
       cmd: run --stability.level=experimental --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
       ports:
         - "12345:12345"
