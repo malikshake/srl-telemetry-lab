@@ -8,6 +8,7 @@ prefix: ""
 mgmt:
   network: st
   ipv4-subnet: 172.80.80.0/24
+  bridge: mybridge
 
 topology:
   defaults:
@@ -41,7 +42,7 @@ topology:
     leaf2:
       startup-config: configs/fabric/leaf2.cfg
       mgmt-ipv4: 172.80.80.12
-      group: leaf
+      group: leaf     
     leaf3:
       startup-config: configs/fabric/leaf3.cfg
       mgmt-ipv4: 172.80.80.13
@@ -86,56 +87,38 @@ topology:
       cmd: --config /gnmic-config.yml --log subscribe
       group: "10" # group 10 is assigned to the nodes of a telemetry stack
 
-    prometheus:
+    pktvisor_containerlab:
       kind: linux
-      mgmt-ipv4: 172.80.80.42
-      image: quay.io/prometheus/prometheus:v2.47.2
+      network-mode: host
+      image: orbcommunity/pktvisor:latest
       binds:
-        - configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      cmd: --config.file=/etc/prometheus/prometheus.yml
-      ports:
-        - 9090:9090
+        - configs/pktvisor/:/geo/:ro
+      cmd: pktvisord mybridge -l 0.0.0.0 -p 10853 --prom-instance containerlab --geo-asn /geo/GeoLite2-ASN.mmdb --geo-city /geo/GeoLite2-City.mmdb
       group: "10"
 
-    grafana:
+    pktvisor_host:
       kind: linux
-      mgmt-ipv4: 172.80.80.43
-      image: grafana/grafana:10.2.1
+      network-mode: host
+      image: orbcommunity/pktvisor:latest
       binds:
-        - configs/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
-        - configs/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
-        - configs/grafana/dashboards:/var/lib/grafana/dashboards
-      ports:
-        - 3000:3000
-      env:
-        GF_INSTALL_PLUGINS: https://algenty.github.io/flowcharting-repository/archives/agenty-flowcharting-panel-1.0.0d.220606199-SNAPSHOT.zip;agenty-flowcharting-panel
-        # env vars to enable anonymous access
-        GF_ORG_ROLE: "Admin"
-        GF_ORG_NAME: "Main Org"
-        GF_AUTH_ANONYMOUS_ENABLED: "true"
-        GF_AUTH_ANONYMOUS: "true"
+        - configs/pktvisor/:/geo/:ro
+      cmd: pktvisord eth0 -l 0.0.0.0 -p 10854 --prom-instance containerlab_host --geo-asn /geo/GeoLite2-ASN.mmdb --geo-city /geo/GeoLite2-City.mmdb
       group: "10"
 
-    ### LOGGING STACK ###
-    promtail:
+    alloy:
       kind: linux
       mgmt-ipv4: 172.80.80.45
-      image: grafana/promtail:2.9.2
+      image: grafana/alloy:latest
       binds:
-        - configs/promtail:/etc/promtail
-      cmd: --config.file=/etc/promtail/promtail-config.yml
+        - configs/alloy/config.alloy:/etc/alloy/config.alloy:ro
+        - configs/alloy/secret.txt:/etc/alloy/secret.txt:ro
+        - configs/alloy/snmp.yaml:/etc/alloy/snmp.yaml:ro
+      cmd: run --stability.level=experimental --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
       ports:
-        - 9080:9080
-
-    loki:
-      kind: linux
-      mgmt-ipv4: 172.80.80.46
-      image: grafana/loki:2.9.2
-      binds:
-        - configs/loki:/etc/loki
-      cmd: --config.file=/etc/loki/loki-config.yml
-      ports:
-        - 3100:3100
+        - "12345:12345"
+      group: "10"
+      env: 
+        HOST_IP: ${HOST_IP}
 
   links:
     - endpoints: ["spine1:e1-1", "leaf1:e1-49"]
@@ -147,3 +130,4 @@ topology:
     - endpoints: ["leaf1:e1-1", "client1:eth1"]
     - endpoints: ["leaf2:e1-1", "client2:eth1"]
     - endpoints: ["leaf3:e1-1", "client3:eth1"]
+    - endpoints: ["alloy:eth1", "macvlan:eth0"]

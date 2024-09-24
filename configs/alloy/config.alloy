@@ -1,0 +1,159 @@
+logging {
+	level  = "debug"
+	format = "logfmt"
+}
+
+livedebugging {
+  enabled = true
+}
+
+local.file "secret" {
+  filename  = "/etc/alloy/secret.txt"
+  is_secret = true
+}
+
+prometheus.scrape "pktvisor" {
+  targets = [{"__address__" = join([env("HOST_IP"),"10853"],":")},
+             {"__address__" = join([env("HOST_IP"),"10854"],":")}]
+  forward_to = [prometheus.remote_write.grafanacloud.receiver]
+  scrape_interval = "10s"
+}
+
+prometheus.scrape "gnmic" {
+  targets = [{"__address__" = "gnmic:9273"}]
+  forward_to = [prometheus.remote_write.grafanacloud.receiver]
+  scrape_interval = "10s"
+}
+
+prometheus.exporter.snmp "integrations_snmp" {
+    config_file = "/etc/alloy/snmp.yaml"
+
+    target "spine1" {
+        address     = "172.80.80.21"
+        module      = "if_mib"
+        auth        = "public_v2"
+    }
+
+    target "spine2" {
+        address     = "172.80.80.22"
+        module      = "if_mib"
+        auth        = "public_v2"
+    }
+
+    target "leaf1" {
+        address     = "172.80.80.11"
+        module      = "if_mib"
+        auth        = "public_v2"
+    }
+
+    target "leaf2" {
+        address     = "172.80.80.12"
+        module      = "if_mib"
+        auth        = "public_v2"
+    }
+
+    target "leaf3" {
+        address     = "172.80.80.13"
+        module      = "if_mib"
+        auth        = "public_v2"
+    }
+}
+
+discovery.relabel "integrations_snmp" {
+    targets = prometheus.exporter.snmp.integrations_snmp.targets
+
+    rule {
+        source_labels = ["job"]
+        regex         = "(^.*snmp)\\/(.*)"
+        target_label  = "job_snmp"
+    }
+
+    rule {
+        source_labels = ["job"]
+        regex         = "(^.*snmp)\\/(.*)"
+        target_label  = "snmp_target"
+        replacement   = "$2"
+    }
+
+}
+prometheus.scrape "integrations_snmp" {
+    targets    = discovery.relabel.integrations_snmp.output
+    forward_to = [prometheus.relabel.regex_replace.receiver]
+    job_name   = "integrations/snmp"
+}
+
+prometheus.relabel "regex_replace" {
+    forward_to = [prometheus.remote_write.grafanacloud.receiver]
+      rule {
+        source_labels = ["ifDescr"]
+        regex         = "^([^,]+).*"
+        action        = "replace"
+        target_label  = "ifDescr"
+        replacement   = "$1"
+    }
+}
+
+prometheus.remote_write "grafanacloud" {
+  endpoint {
+    url = "https://prometheus-us-central1.grafana.net/api/prom/push"
+    basic_auth {
+      username = "894599"
+      password = local.file.secret.content
+    }
+  }
+}
+
+discovery.relabel "syslog" {
+	targets = []
+
+	rule {
+		source_labels = ["__syslog_message_hostname"]
+		target_label  = "source"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_severity"]
+		target_label  = "level"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_app_name"]
+		target_label  = "application"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_facility"]
+		target_label  = "facility"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_proc_id"]
+		target_label  = "procid"
+	}
+}
+
+loki.source.syslog "syslog" {
+	listener {
+		address               = "0.0.0.0:1514"
+		protocol              = "udp"
+		idle_timeout          = "5m0s"
+		label_structured_data = true
+		labels                = {
+			job = "syslog",
+		}
+		max_message_length = 0
+	}
+	forward_to    = [loki.write.grafanacloud.receiver]
+	relabel_rules = discovery.relabel.syslog.rules
+}
+
+loki.write "grafanacloud" {
+  endpoint {
+    url = "https://logs-prod-017.grafana.net/loki/api/v1/push"
+
+    basic_auth {
+      username = "446268"
+      password = local.file.secret.content
+    }
+  }
+}
